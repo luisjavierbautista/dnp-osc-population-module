@@ -56,7 +56,7 @@ class Territorio(SQLModel, table=True):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "territorio_id": "05001",
                 "nivel": "municipal",

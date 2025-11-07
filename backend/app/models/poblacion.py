@@ -42,7 +42,6 @@ class PoblacionEdad(SQLModel, table=True):
 
     territorio_id: str = Field(
         sa_column=Column(String(5), primary_key=True, nullable=False),
-        foreign_key="territorio.territorio_id",
         description="Código DANE del territorio"
     )
     anio: int = Field(
@@ -71,7 +70,7 @@ class PoblacionEdad(SQLModel, table=True):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "territorio_id": "05001",
                 "anio": 2025,
@@ -105,7 +104,6 @@ class PoblacionTotal(SQLModel, table=True):
 
     territorio_id: str = Field(
         sa_column=Column(String(5), primary_key=True, nullable=False),
-        foreign_key="territorio.territorio_id",
         description="Código DANE del territorio"
     )
     anio: int = Field(
@@ -140,7 +138,7 @@ class PoblacionTotal(SQLModel, table=True):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "territorio_id": "05001",
                 "anio": 2025,
