@@ -472,3 +472,45 @@ curl http://localhost:8000/api/v1/chats/providers
 **Implementation Date**: January 2025
 **pydantic-ai Version**: 1.14.0
 **Status**: ✅ Production Ready
+
+---
+
+## Git Repositories
+
+### Dual Remotes
+
+This project uses two Git remotes:
+
+| Remote | URL | Description |
+|--------|-----|-------------|
+| `origin` | `git@github.com:luisjavierbautista/dnp-osc-population-module.git` | GitHub (primary) |
+| `dnp` | `https://tfs.dnp.gov.co/DNP-Interna/SVDU.OSC/_git/osc_poblacion` | DNP TFS (internal) |
+
+### Pushing to Both Remotes
+
+**Push to GitHub (origin):**
+```bash
+git push origin HEAD:main
+```
+
+**Push to DNP TFS (dnp):**
+DNP TFS requires authentication via Basic Auth header with PAT token:
+```bash
+# Generate base64 auth token (replace YOUR_PAT with actual PAT)
+echo -n ":YOUR_PAT" | base64
+
+# Push using the base64 token
+git -c http.extraHeader="Authorization: Basic BASE64_TOKEN" push dnp HEAD:main
+```
+
+**Example with actual command:**
+```bash
+git -c http.extraHeader="Authorization: Basic OmZsZXJ2N2R0ZWFtYWpxZ25va25kaDJqcG9tZGhqNWxkcnN6YjZwdHp6b2xmYWdldW9udGE=" push dnp HEAD:main
+```
+
+### Notes on DNP TFS Authentication
+
+- PAT tokens work but require the `http.extraHeader` approach
+- Standard URL-embedded credentials don't work reliably with this TFS instance
+- TFS API version is 5.1 (not 6.0)
+- Default branch on DNP TFS is `master`, but we push to `main`
