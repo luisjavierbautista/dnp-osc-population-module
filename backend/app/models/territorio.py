@@ -8,8 +8,8 @@ import enum
 
 class NivelTerritorial(str, enum.Enum):
     """Nivel territorial."""
-    DEPARTAMENTAL = "departamental"
-    MUNICIPAL = "municipal"
+    DEPARTAMENTAL = "DEPARTAMENTAL"
+    MUNICIPAL = "MUNICIPAL"
 
 
 class Territorio(SQLModel, table=True):

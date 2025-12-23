@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-population_pass}
       POSTGRES_DB: ${POSTGRES_DB:-population_db}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5434:5432"  # External port 5434 to avoid conflicts
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -47,6 +47,13 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    shm_size: '2gb'
 
   # Frontend (Next.js)
   frontend:
@@ -56,9 +63,9 @@ services:
     container_name: dnp_population_frontend
     command: npm run dev
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
     ports:
-      - "3000:3000"
+      - "3003:3000"  # External port 3003 to avoid conflicts
     volumes:
       - ./frontend:/app
       - /app/node_modules

@@ -6,7 +6,7 @@ from ..core.config import settings
 
 # Crear el engine de SQLAlchemy
 engine = create_engine(
-    settings.DATABASE_URL,
+    settings.get_database_url(),
     echo=settings.DEBUG,
     pool_pre_ping=True,
     pool_size=settings.MAX_CONNECTIONS_COUNT,

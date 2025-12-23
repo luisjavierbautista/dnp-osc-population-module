@@ -6,6 +6,17 @@ from .poblacion import (
     AreaGeografica,
     Sexo
 )
+from .chat import Chat, ChatMessage
+from .dane_indicators import (
+    DaneRegion,
+    DaneDepartment,
+    DaneMunicipality,
+    DaneFertilityIndicator,
+    DaneMigrationIndicator,
+    DaneMortalityIndicator,
+    DanePrincipalIndicator,
+    DaneGrowthIndicator,
+)
 
 __all__ = [
     "Territorio",
@@ -14,4 +25,14 @@ __all__ = [
     "PoblacionTotal",
     "AreaGeografica",
     "Sexo",
+    "Chat",
+    "ChatMessage",
+    "DaneRegion",
+    "DaneDepartment",
+    "DaneMunicipality",
+    "DaneFertilityIndicator",
+    "DaneMigrationIndicator",
+    "DaneMortalityIndicator",
+    "DanePrincipalIndicator",
+    "DaneGrowthIndicator",
 ]

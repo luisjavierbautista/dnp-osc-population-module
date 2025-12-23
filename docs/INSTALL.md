@@ -221,32 +221,59 @@ npm start
 
 ## Carga de Datos
 
-### Preparar Archivos CSV
+### Preparar Archivos Excel
 
-Coloca los archivos CSV del DANE en:
+Coloca los archivos Excel del DANE en la estructura correcta:
 
 ```
-etl/data/raw/
-├── dane_departamental.csv
-└── dane_municipal.csv
+etl/data/
+├── Departamental/
+│   ├── DCD-area-sexo-edad-proypoblacion-Dep-1985-2004.xlsx
+│   └── PPED-AreaSexoEdadDep-2018-2050_VP.xlsx
+└── Municipal/
+    ├── DCD-area-sexo-edad-proypoblacion-Mun-1985-1994.xlsx
+    ├── DCD-area-sexo-edad-proypoblacion-Mun-1995-2004.xlsx
+    ├── DCD-area-sexo-edad-proypoblacion-Mun-2005-2017_VP.xlsx
+    └── PPED-AreaSexoEdadMun-2018-2042_VP.xlsx
 ```
 
 ### Ejecutar ETL
+
+**⚠️ IMPORTANTE**: Los datos departamentales y municipales usan diferentes estrategias de carga:
+
+#### 1. Cargar Datos Departamentales (Con Docker)
+
+```bash
+# Archivos pequeños - carga rápida (~2 minutos)
+docker compose exec backend python /etl/scripts/load_all_data.py
+```
+
+#### 2. Cargar Datos Municipales (Con Docker)
+
+```bash
+# Archivos grandes - carga con chunks (~30-60 minutos)
+# SIEMPRE usar este script para datos municipales
+docker compose exec backend python /etl/scripts/load_municipal_data.py
+```
+
+#### Carga Manual (Sin Docker)
 
 ```bash
 cd backend
 source venv/bin/activate
 
-# Cargar datos departamentales
-python -m etl.scripts.etl_dane \
-    ../etl/data/raw/dane_departamental.csv \
-    departamental
+# 1. Cargar datos DEPARTAMENTALES
+python /etl/scripts/load_all_data.py
 
-# Cargar datos municipales
-python -m etl.scripts.etl_dane \
-    ../etl/data/raw/dane_municipal.csv \
-    municipal
+# 2. Cargar datos MUNICIPALES (usa estrategia de chunks)
+python /etl/scripts/load_municipal_data.py
 ```
+
+**Notas importantes:**
+- **Datos departamentales**: Archivos pequeños, carga completa en memoria
+- **Datos municipales**: Archivos grandes (39+ MB), procesamiento por chunks de 1000 filas
+- NO intercambiar los scripts - cada uno está optimizado para su tipo de datos
+- El script municipal puede tardar 30-60 minutos dependiendo del hardware
 
 ### Validar Carga
 
@@ -254,13 +281,27 @@ python -m etl.scripts.etl_dane \
 # Conectar a PostgreSQL
 psql -U population_user -d population_db
 
-# Verificar datos
-SELECT COUNT(*) FROM territorio;
-SELECT COUNT(*) FROM poblacion_edad;
-SELECT COUNT(*) FROM poblacion_total;
+# O con Docker:
+docker compose exec db psql -U population_user -d population_db
+
+# Verificar datos cargados
+SELECT COUNT(*) as total_registros FROM poblacion_edad;
+
+# Verificar territorios por nivel
+SELECT nivel, COUNT(DISTINCT territorio_id) as territorios
+FROM territorio
+GROUP BY nivel;
+
+# Verificar rango de años
+SELECT MIN(anio) as año_inicial, MAX(anio) as año_final
+FROM poblacion_edad;
 
 \q
 ```
+
+**Resultados esperados:**
+- Departamental: ~1.5M registros, 33 territorios, años 2018-2050
+- Municipal: ~30M+ registros, ~1,123 territorios (1,103 municipios + 20 áreas no municipalizadas), años 2018-2042
 
 ---
 

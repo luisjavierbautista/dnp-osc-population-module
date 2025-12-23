@@ -65,14 +65,15 @@ export interface PyramidResponse {
 }
 
 export interface DemographicIndicators {
-  territorioId: string
+  territorio_id: string
   anio: number
   area: string
-  infantil: number
-  activa: number
-  mayor: number
-  dependencia: number
-  envejecimiento: number
+  poblacion_total: number
+  poblacion_infantil: number
+  poblacion_activa: number
+  poblacion_mayor: number
+  indice_dependencia: number | null
+  indice_envejecimiento: number | null
 }
 
 export interface CompareMetrics {

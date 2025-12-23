@@ -59,19 +59,60 @@ docker exec -it dnp_population_db psql -U population_user -d population_db
 
 Antes de usar la API, necesitas cargar los datos del DANE:
 
+### 1. Preparar archivos Excel
+
+Coloca los archivos Excel del DANE en `etl/data/`:
+
+```
+etl/data/
+├── Departamental/
+│   ├── DCD-area-sexo-edad-proypoblacion-Dep-1985-2004.xlsx
+│   └── PPED-AreaSexoEdadDep-2018-2050_VP.xlsx
+└── Municipal/
+    ├── DCD-area-sexo-edad-proypoblacion-Mun-1985-1994.xlsx
+    ├── DCD-area-sexo-edad-proypoblacion-Mun-1995-2004.xlsx
+    ├── DCD-area-sexo-edad-proypoblacion-Mun-2005-2017_VP.xlsx
+    └── PPED-AreaSexoEdadMun-2018-2042_VP.xlsx
+```
+
+### 2. Cargar datos departamentales
+
 ```bash
-# 1. Coloca tus archivos CSV en etl/data/raw/
-# - dane_departamental.csv
-# - dane_municipal.csv
+# Carga datos DEPARTAMENTALES (rápido, ~2 minutos)
+docker compose exec backend python /etl/scripts/load_all_data.py
+```
 
-# 2. Ejecuta el ETL
-docker exec -it dnp_population_backend python -m etl.scripts.etl_dane \
-    /etl/data/raw/dane_departamental.csv \
-    departamental
+### 3. Cargar datos municipales
 
-docker exec -it dnp_population_backend python -m etl.scripts.etl_dane \
-    /etl/data/raw/dane_municipal.csv \
-    municipal
+```bash
+# Carga datos MUNICIPALES con estrategia de chunks (puede tardar ~30 minutos)
+# IMPORTANTE: SIEMPRE usar este script para datos municipales
+docker compose exec backend python /etl/scripts/load_municipal_data.py
+```
+
+**⚠️ IMPORTANTE sobre carga de datos:**
+
+- **Datos departamentales**: Usar `load_all_data.py` (archivos pequeños)
+- **Datos municipales**: SIEMPRE usar `load_municipal_data.py` (usa estrategia de chunks para archivos grandes)
+- Los datos municipales se procesan en lotes de 1000 filas para evitar problemas de memoria
+- El script de municipales puede tardar 30-60 minutos dependiendo del hardware
+
+### Verificar carga de datos
+
+```bash
+# Conectar a la base de datos
+docker compose exec db psql -U population_user -d population_db
+
+# Verificar registros cargados
+SELECT COUNT(*) FROM poblacion_edad;
+
+# Verificar territorios por nivel
+SELECT nivel, COUNT(DISTINCT territorio_id)
+FROM territorio
+GROUP BY nivel;
+
+# Salir
+\q
 ```
 
 ## 🎯 Ejemplos de Uso

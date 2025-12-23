@@ -353,3 +353,94 @@ def get_indicators(
         )
 
     return result
+
+
+@router.get(
+    "/time_series",
+    summary="Serie de tiempo de población",
+    description="""
+    Retorna serie de tiempo de población total con crecimiento y delta.
+
+    **Parámetros:**
+    - `territorio_id`: Código DANE del territorio (departamento o municipio)
+    - `anio_from`: Año inicial (default: 2018)
+    - `anio_to`: Año final (default: 2050)
+    - `area`: Área geográfica
+
+    **Métricas por año:**
+    - `poblacion`: Población total
+    - `delta`: Cambio absoluto respecto al año anterior
+    - `tasa_crecimiento`: Tasa de crecimiento porcentual
+
+    **Ejemplo:**
+    ```
+    GET /api/v1/population/time_series?territorio_id=05&anio_from=2020&anio_to=2030
+    ```
+    """
+)
+def get_time_series(
+    territorio_id: str = Query(..., description="Código del territorio"),
+    anio_from: int = Query(2018, ge=2018, le=2050, description="Año inicial"),
+    anio_to: int = Query(2050, ge=2018, le=2050, description="Año final"),
+    area: str = Query("Total", description="Área geográfica"),
+    session: Session = Depends(get_session)
+):
+    """Obtener serie de tiempo de población."""
+    if anio_to < anio_from:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_PARAM",
+                "message": "anio_to debe ser mayor o igual a anio_from"
+            }
+        )
+
+    service = PopulationService(session)
+    result = service.get_population_time_series(territorio_id, anio_from, anio_to, area)
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "NOT_FOUND",
+                "message": "No se encontraron datos para la serie de tiempo"
+            }
+        )
+
+    return {
+        "territorio_id": territorio_id,
+        "anio_from": anio_from,
+        "anio_to": anio_to,
+        "area": area,
+        "series": result
+    }
+
+
+@router.get(
+    "/territories",
+    summary="Listar territorios",
+    description="""
+    Retorna la lista de territorios disponibles.
+
+    **Parámetros:**
+    - `nivel`: Filtrar por nivel (DEPARTAMENTAL, MUNICIPAL)
+    - `search`: Buscar por nombre o código
+    - `limit`: Límite de resultados (default: 1000)
+
+    **Ejemplo:**
+    ```
+    GET /api/v1/population/territories?nivel=MUNICIPAL&search=Bogotá
+    ```
+    """
+)
+def get_territories(
+    nivel: Optional[str] = Query(None, description="Nivel territorial"),
+    search: Optional[str] = Query(None, description="Buscar por nombre o código"),
+    limit: int = Query(1000, le=2000, description="Límite de resultados"),
+    session: Session = Depends(get_session)
+):
+    """Obtener lista de territorios."""
+    service = PopulationService(session)
+    results = service.get_territories(nivel=nivel, search=search, limit=limit)
+
+    return results

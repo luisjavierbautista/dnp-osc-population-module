@@ -36,6 +36,8 @@
 - ✅ **ETL completo** para datos DANE (departamental y municipal)
 - ✅ **Validaciones de integridad** (cierres por sexo, edad, área)
 - ✅ **Cálculos demográficos**: crecimiento, bono demográfico, envejecimiento
+- ✅ **Chat AI con LLM**: Natural language queries sobre datos de población
+- ✅ **Dual LLM Providers**: Soporte para Claude (Anthropic) y Azure OpenAI (DNP)
 - ✅ **Autenticación JWT** y CORS configurado
 - ✅ **Rate limiting** (100 req/min)
 
@@ -46,17 +48,20 @@
 - ✅ **Zustand** para estado global
 - ✅ **Componentes UI** reutilizables
 - ✅ **Filtros dinámicos** (año, área, sexo, territorio)
+- ✅ **Chat AI Interface**: Interfaz conversacional con selector de proveedor LLM
 - ✅ **Visualizaciones**:
   - Mapa categorizado (choropleth)
   - Pirámide poblacional
   - Comparador de territorios
   - Bono demográfico
+  - Chat AI con conversaciones persistentes
 
 ### Datos
-- 📊 **Fuente**: DANE - Proyecciones de Población 2018-2050
-- 📍 **Cobertura**: Departamental y Municipal
-- 👥 **Desagregación**: Por edad (0-100+), sexo (H/M/T), área (Cabecera/CPRD/Total)
-- 📅 **Período**: 2018-2050 (33 años)
+- 📊 **Fuente**: DANE - Proyecciones de Población 1985-2050
+- 📍 **Cobertura**: 1,156 territorios (33 departamentos + 1,123 municipios)
+- 👥 **Desagregación**: Por edad (0-100), sexo (H/M/T), área (Total/Cabecera Municipal/Centros Poblados y Rural Disperso)
+- 📅 **Período**: 1985-2050 (66 años)
+- 💾 **Registros**: 47.2+ millones de registros en poblacion_edad
 
 ---
 
@@ -69,6 +74,7 @@
 - **Servidor**: Uvicorn + Gunicorn
 - **Seguridad**: JWT (python-jose), CORS
 - **Data**: Pandas, NumPy
+- **AI/LLM**: pydantic-ai, Anthropic Claude, Azure OpenAI
 - **Testing**: pytest
 
 ### Frontend
@@ -234,6 +240,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # CORS
 BACKEND_CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+
+# AI / LLM (Configure at least one)
+# Claude (Anthropic)
+ANTHROPIC_API_KEY=your-anthropic-api-key
+
+# Azure OpenAI (DNP Official - Preferred)
+AZURE_OPENAI_API_KEY=your-azure-api-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_API_VERSION=2024-08-01-preview
 ```
 
 ### Frontend (`.env.local`)
@@ -296,6 +312,10 @@ Navega a http://localhost:3000 y explora:
 - **Pirámide**: Estructura poblacional por edad y sexo
 - **Comparador**: Compara múltiples territorios
 - **Bono Demográfico**: Análisis de transición demográfica
+- **Chat AI**: Haz preguntas en lenguaje natural sobre datos de población
+  - Selecciona entre Claude (Anthropic) o Azure OpenAI (DNP)
+  - Conversaciones persistentes con historial
+  - Respuestas con visualizaciones automáticas
 
 ---
 
@@ -303,6 +323,7 @@ Navega a http://localhost:3000 y explora:
 
 ### Endpoints Principales
 
+#### Population Data
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `GET` | `/api/v1/population/age` | Población por edad |
@@ -311,6 +332,15 @@ Navega a http://localhost:3000 y explora:
 | `GET` | `/api/v1/population/pyramid` | Datos para pirámide |
 | `POST` | `/api/v1/population/compare` | Comparar territorios |
 | `GET` | `/api/v1/population/indicators` | Indicadores demográficos |
+
+#### AI Chat
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/api/v1/chats/providers` | Obtener proveedores LLM disponibles |
+| `POST` | `/api/v1/chats/query` | Consulta en lenguaje natural |
+| `GET` | `/api/v1/chats/` | Listar conversaciones |
+| `POST` | `/api/v1/chats/` | Crear nueva conversación |
+| `GET` | `/api/v1/chats/{id}/messages` | Obtener mensajes de chat |
 
 ### Ejemplo de Response
 
@@ -439,7 +469,18 @@ npm run type-check
 
 ## 📚 Documentación Adicional
 
-- **Especificación Técnica**: `docs/especificacion_tecnica.md`
+### Guías de Uso y Configuración
+- **Guía de Instalación**: [`docs/INSTALL.md`](docs/INSTALL.md)
+- **Integración LLM (Claude & Azure OpenAI)**: [`CLAUDE.md`](CLAUDE.md) ⭐
+- **LLM Provider Switching**: [`docs/LLM_PROVIDER_SWITCHING.md`](docs/LLM_PROVIDER_SWITCHING.md)
+- **Valores de Filtros de Base de Datos**: [`docs/DATABASE_FILTERS.md`](docs/DATABASE_FILTERS.md)
+- **Componentes de Filtros Frontend**: [`docs/FILTER_COMPONENTS.md`](docs/FILTER_COMPONENTS.md)
+
+### Desarrollo y Roadmap
+- **📋 Plan de Implementación Completo**: [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) 🆕
+- **⚡ Resumen Rápido de Mejoras**: [`docs/QUICK_IMPROVEMENTS_SUMMARY.md`](docs/QUICK_IMPROVEMENTS_SUMMARY.md) 🆕
+
+### Referencias Técnicas
 - **Modelo de Datos**: Ver comentarios en `backend/app/models/`
 - **API Reference**: http://localhost:8000/docs
 

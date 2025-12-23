@@ -148,24 +148,28 @@ class PopulationService:
         Returns:
             Diccionario con población urbana y rural
         """
-        # Obtener totales por área
-        stmt = select(PoblacionTotal).where(
+        # Calculate from poblacion_edad since poblacion_total table is empty
+        # Get urban population (Cabecera Municipal)
+        stmt_urbana = select(func.sum(PoblacionEdad.poblacion)).where(
             and_(
-                PoblacionTotal.territorio_id == territorio_id,
-                PoblacionTotal.anio == anio
+                PoblacionEdad.territorio_id == territorio_id,
+                PoblacionEdad.anio == anio,
+                PoblacionEdad.area_geografica == AreaGeografica.CABECERA.value
             )
         )
-        results = self.session.exec(stmt).all()
+        urbana_result = self.session.exec(stmt_urbana).first()
+        urbana = float(urbana_result) if urbana_result else None
 
-        # Buscar por área
-        urbana = None
-        rural = None
-
-        for row in results:
-            if row.area_geografica == AreaGeografica.CABECERA.value:
-                urbana = float(row.pob_total)
-            elif row.area_geografica == AreaGeografica.CPRD.value:
-                rural = float(row.pob_total)
+        # Get rural population (Centros Poblados y Rural Disperso)
+        stmt_rural = select(func.sum(PoblacionEdad.poblacion)).where(
+            and_(
+                PoblacionEdad.territorio_id == territorio_id,
+                PoblacionEdad.anio == anio,
+                PoblacionEdad.area_geografica == AreaGeografica.CPRD.value
+            )
+        )
+        rural_result = self.session.exec(stmt_rural).first()
+        rural = float(rural_result) if rural_result else None
 
         if urbana is None or rural is None:
             return None
@@ -261,7 +265,7 @@ class PopulationService:
         Obtiene datos para pirámide poblacional.
 
         Args:
-            territorio_id: Código del territorio
+            territorio_id: Código del territorio (departamento o municipio)
             anio: Año
             area: Área geográfica
             modo: 'simple' o 'quinquenal'
@@ -269,7 +273,7 @@ class PopulationService:
         Returns:
             Diccionario con series de hombres y mujeres
         """
-        # Obtener datos para H y M
+        # Get data for specific territory
         stmt = select(PoblacionEdad).where(
             and_(
                 PoblacionEdad.territorio_id == territorio_id,
@@ -287,10 +291,13 @@ class PopulationService:
 
         for row in results:
             edad = row.edad
-            if row.sexo == Sexo.HOMBRE.value:
-                hombres_data[edad] = float(row.poblacion)
+            sexo = row.sexo
+            poblacion = float(row.poblacion)
+
+            if sexo == Sexo.HOMBRE.value:
+                hombres_data[edad] = poblacion
             else:
-                mujeres_data[edad] = float(row.poblacion)
+                mujeres_data[edad] = poblacion
 
         # Generar series
         if modo == "quinquenal":
@@ -380,13 +387,12 @@ class PopulationService:
         Returns:
             Diccionario con indicadores
         """
-        # Obtener población por edad (sexo total)
+        # Obtener población por edad (suma de ambos sexos: H + M)
         stmt = select(PoblacionEdad).where(
             and_(
                 PoblacionEdad.territorio_id == territorio_id,
                 PoblacionEdad.anio == anio,
-                PoblacionEdad.area_geografica == area,
-                PoblacionEdad.sexo == Sexo.TOTAL.value
+                PoblacionEdad.area_geografica == area
             )
         )
         results = self.session.exec(stmt).all()
@@ -395,6 +401,7 @@ class PopulationService:
         infantil = 0  # 0-14
         activa = 0    # 15-64
         mayor = 0     # 65+
+        total = 0
 
         for row in results:
             edad = row.edad
@@ -407,19 +414,22 @@ class PopulationService:
             else:
                 mayor += pob
 
+            total += pob
+
         # Calcular indicadores
-        dependencia = (infantil + mayor) / activa if activa > 0 else None
-        envejecimiento = mayor / infantil if infantil > 0 else None
+        dependencia = ((infantil + mayor) / activa * 100) if activa > 0 else None
+        envejecimiento = (mayor / infantil * 100) if infantil > 0 else None
 
         return {
-            "territorioId": territorio_id,
+            "territorio_id": territorio_id,
             "anio": anio,
             "area": area,
-            "infantil": infantil,
-            "activa": activa,
-            "mayor": mayor,
-            "dependencia": round(dependencia, 4) if dependencia else None,
-            "envejecimiento": round(envejecimiento, 4) if envejecimiento else None
+            "poblacion_total": int(total),
+            "poblacion_infantil": int(infantil),
+            "poblacion_activa": int(activa),
+            "poblacion_mayor": int(mayor),
+            "indice_dependencia": round(dependencia, 2) if dependencia else None,
+            "indice_envejecimiento": round(envejecimiento, 2) if envejecimiento else None
         }
 
     def compare_territories(
@@ -462,17 +472,16 @@ class PopulationService:
 
             # Población total
             if "poblacion_total" in metricas:
-                pob_total = self.session.exec(
-                    select(PoblacionTotal).where(
-                        and_(
-                            PoblacionTotal.territorio_id == terr_id,
-                            PoblacionTotal.anio == anio,
-                            PoblacionTotal.area_geografica == area
-                        )
+                # Calculate from poblacion_edad since poblacion_total table is empty
+                stmt = select(func.sum(PoblacionEdad.poblacion)).where(
+                    and_(
+                        PoblacionEdad.territorio_id == terr_id,
+                        PoblacionEdad.anio == anio,
+                        PoblacionEdad.area_geografica == area
                     )
-                ).first()
-
-                metrics["poblacionTotal"] = float(pob_total.pob_total) if pob_total else None
+                )
+                total = self.session.exec(stmt).first()
+                metrics["poblacionTotal"] = float(total) if total else None
 
             # Porcentaje urbano
             if "pct_urbana" in metricas:
@@ -482,12 +491,12 @@ class PopulationService:
             # Envejecimiento
             if "envejecimiento" in metricas:
                 indicators = self.calculate_demographic_indicators(terr_id, anio, area)
-                metrics["envejecimiento"] = indicators["envejecimiento"] if indicators else None
+                metrics["envejecimiento"] = indicators["indice_envejecimiento"] if indicators else None
 
             # Dependencia
             if "dependencia" in metricas:
                 indicators = self.calculate_demographic_indicators(terr_id, anio, area)
-                metrics["dependencia"] = indicators["dependencia"] if indicators else None
+                metrics["dependencia"] = indicators["indice_dependencia"] if indicators else None
 
             # CAGR
             if "cagr" in metricas:
@@ -497,3 +506,115 @@ class PopulationService:
             results.append(metrics)
 
         return results
+
+    def get_population_time_series(
+        self,
+        territorio_id: str,
+        anio_from: int = 2018,
+        anio_to: int = 2050,
+        area: str = "Total"
+    ) -> Optional[List[Dict]]:
+        """
+        Obtiene serie de tiempo de población total con crecimiento y delta.
+
+        Args:
+            territorio_id: Código del territorio (departamento o municipio)
+            anio_from: Año inicial
+            anio_to: Año final
+            area: Área geográfica
+
+        Returns:
+            Lista con población total, tasa de crecimiento y delta por año
+        """
+        # Get population for each year in range
+        years = list(range(anio_from, anio_to + 1))
+        results = []
+
+        prev_population = None
+
+        for anio in years:
+            # Calculate total population for this year
+            stmt = select(func.sum(PoblacionEdad.poblacion)).where(
+                and_(
+                    PoblacionEdad.territorio_id == territorio_id,
+                    PoblacionEdad.anio == anio,
+                    PoblacionEdad.area_geografica == area
+                )
+            )
+
+            total = self.session.exec(stmt).first()
+            population = float(total) if total else None
+
+            if population is not None:
+                # Calculate delta and growth rate
+                delta = None
+                growth_rate = None
+
+                if prev_population is not None and prev_population > 0:
+                    delta = population - prev_population
+                    growth_rate = (delta / prev_population) * 100
+
+                results.append({
+                    "anio": anio,
+                    "poblacion": int(population),
+                    "delta": int(delta) if delta is not None else None,
+                    "tasa_crecimiento": round(growth_rate, 4) if growth_rate is not None else None
+                })
+
+                prev_population = population
+
+        return results if results else None
+
+    def get_territories(
+        self,
+        nivel: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 1000
+    ) -> List[Dict]:
+        """
+        Obtiene lista de territorios con filtros opcionales.
+
+        Args:
+            nivel: Nivel territorial (DEPARTAMENTAL, MUNICIPAL)
+            search: Búsqueda por nombre o código
+            limit: Límite de resultados
+
+        Returns:
+            Lista de territorios
+        """
+        stmt = select(Territorio)
+
+        # Filtro por nivel
+        if nivel:
+            stmt = stmt.where(Territorio.nivel == nivel.upper())
+
+        # Filtro de búsqueda
+        if search:
+            search_pattern = f"%{search}%"
+            stmt = stmt.where(
+                or_(
+                    Territorio.nombre.ilike(search_pattern),
+                    Territorio.territorio_id.ilike(search_pattern)
+                )
+            )
+
+        # Ordenar alfabéticamente por nombre
+        stmt = stmt.order_by(Territorio.nombre)
+
+        # Limitar resultados
+        stmt = stmt.limit(limit)
+
+        # Ejecutar query
+        territories = self.session.exec(stmt).all()
+
+        # Formatear resultados
+        return [
+            {
+                "territorio_id": t.territorio_id,
+                "nombre": t.nombre,
+                "nivel": t.nivel.upper() if t.nivel else None,
+                "dp": t.dp,
+                "mpio": t.mpio
+            }
+            for t in territories
+        ]
