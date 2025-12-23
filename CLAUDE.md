@@ -477,40 +477,92 @@ curl http://localhost:8000/api/v1/chats/providers
 
 ## Git Repositories
 
-### Dual Remotes
+### Dual Remotes Configuration
 
-This project uses two Git remotes:
+This project uses two Git remotes to maintain code in both GitHub and DNP TFS:
 
 | Remote | URL | Description |
 |--------|-----|-------------|
-| `origin` | `git@github.com:luisjavierbautista/dnp-osc-population-module.git` | GitHub (primary) |
-| `dnp` | `https://tfs.dnp.gov.co/DNP-Interna/SVDU.OSC/_git/osc_poblacion` | DNP TFS (internal) |
+| `origin` | `git@github.com:luisjavierbautista/dnp-osc-population-module.git` | GitHub (primary development) |
+| `dnp` | `https://tfs.dnp.gov.co/DNP-Interna/SVDU.OSC/_git/osc_poblacion` | DNP TFS (internal/production) |
 
-### Pushing to Both Remotes
+### Branch Structure
 
-**Push to GitHub (origin):**
+| Remote | Branch | Purpose |
+|--------|--------|---------|
+| `origin` (GitHub) | `claude/dnp-population-module-*` | Development branch |
+| `origin` (GitHub) | `main` | Stable releases |
+| `dnp` (TFS) | `main` | Current development code |
+| `dnp` (TFS) | `master` | Original branch (merge target for PRs) |
+
+### Syncing Both Repositories
+
+**Quick sync to both remotes (recommended workflow):**
 ```bash
-git push origin HEAD:main
-```
+# 1. Push to GitHub
+git push origin HEAD
 
-**Push to DNP TFS (dnp):**
-DNP TFS requires authentication via Basic Auth header with PAT token:
-```bash
-# Generate base64 auth token (replace YOUR_PAT with actual PAT)
-echo -n ":YOUR_PAT" | base64
-
-# Push using the base64 token
-git -c http.extraHeader="Authorization: Basic BASE64_TOKEN" push dnp HEAD:main
-```
-
-**Example with actual command:**
-```bash
+# 2. Push to DNP TFS (requires PAT authentication)
 git -c http.extraHeader="Authorization: Basic OmZsZXJ2N2R0ZWFtYWpxZ25va25kaDJqcG9tZGhqNWxkcnN6YjZwdHp6b2xmYWdldW9udGE=" push dnp HEAD:main
 ```
 
-### Notes on DNP TFS Authentication
+**Fetch from both remotes:**
+```bash
+# Fetch GitHub
+git fetch origin
 
-- PAT tokens work but require the `http.extraHeader` approach
-- Standard URL-embedded credentials don't work reliably with this TFS instance
-- TFS API version is 5.1 (not 6.0)
-- Default branch on DNP TFS is `master`, but we push to `main`
+# Fetch DNP TFS
+git -c http.extraHeader="Authorization: Basic OmZsZXJ2N2R0ZWFtYWpxZ25va25kaDJqcG9tZGhqNWxkcnN6YjZwdHp6b2xmYWdldW9udGE=" fetch dnp
+```
+
+### DNP TFS Authentication
+
+DNP TFS requires Basic Auth header with PAT token (standard URL credentials don't work):
+
+```bash
+# PAT Token (base64 encoded): OmZsZXJ2N2R0ZWFtYWpxZ25va25kaDJqcG9tZGhqNWxkcnN6YjZwdHp6b2xmYWdldW9udGE=
+
+# To generate a new base64 token from a new PAT:
+echo -n ":YOUR_NEW_PAT" | base64
+```
+
+**Notes:**
+- TFS API version is 5.1
+- PAT must have Code (Read & Write) permissions
+- The colon `:` before the PAT is required (empty username)
+
+### Creating PRs in DNP TFS
+
+1. Push your changes to `dnp` remote's `main` branch
+2. Go to: https://tfs.dnp.gov.co/DNP-Interna/SVDU.OSC/_git/osc_poblacion/pullrequests
+3. Create PR from `main` → `master`
+4. After merge, `master` will have the latest code
+
+### Setting Up Remotes (for new clones)
+
+```bash
+# If cloned from GitHub, add DNP remote:
+git remote add dnp https://tfs.dnp.gov.co/DNP-Interna/SVDU.OSC/_git/osc_poblacion
+
+# If cloned from DNP TFS, add GitHub remote:
+git remote add origin git@github.com:luisjavierbautista/dnp-osc-population-module.git
+
+# Verify remotes
+git remote -v
+```
+
+### Troubleshooting
+
+**"Authentication failed" on DNP TFS push:**
+- Use the `http.extraHeader` approach, not URL-embedded credentials
+- Verify PAT token has not expired
+- Ensure PAT has Code Read & Write permissions
+
+**"Unrelated histories" when merging:**
+```bash
+git merge dnp/master --allow-unrelated-histories
+# Resolve conflicts keeping your versions:
+git checkout --ours <conflicting-files>
+git add <conflicting-files>
+git commit
+```
